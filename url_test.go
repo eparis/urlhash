@@ -6,7 +6,7 @@ func TestHash(t *testing.T) {
 	testCases := []struct {
 		url          string
 		expected     string
-		allowedWords map[string]bool
+		allowedWords map[string]struct{}
 		salt         string
 	}{
 		{

@@ -9,16 +9,16 @@ import (
 )
 
 var (
-	allowedWords   = map[string]bool{}
-	OpenShiftWords = map[string]bool{
-		"kubernetes": true,
-		"k8s":        true,
-		"openshift":  true,
-		"console":    true,
-		"api":        true,
-		"com":        true,
-		"net":        true,
-		"org":        true,
+	allowedWords   = map[string]struct{}{}
+	OpenShiftWords = map[string]struct{}{
+		"kubernetes": {},
+		"k8s":        {},
+		"openshift":  {},
+		"console":    {},
+		"api":        {},
+		"com":        {},
+		"net":        {},
+		"org":        {},
 	}
 )
 
@@ -101,7 +101,7 @@ func hashString(str, salt string) string {
 
 // SetAllowedWords allows you to specify words which will not be hashed. These will
 // instead be returned unchanged.
-func SetAllowedWords(allowed map[string]bool) {
+func SetAllowedWords(allowed map[string]struct{}) {
 	allowedWords = allowed
 }
 
