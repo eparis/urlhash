@@ -30,12 +30,11 @@ func hash(value string, salt string) string {
 }
 
 // Returns the last len(value) sha256 values of salt+value
-func hashTrunc(value string, salt string) string {
+func hashTrunc(value string, salt string, size int) string {
 	hashVal := hash(value, salt)
 	hashLen := len(hashVal)
-	partLen := len(value)
-	if hashLen > partLen {
-		hashVal = hashVal[hashLen-partLen:]
+	if hashLen > size {
+		hashVal = hashVal[hashLen-size:]
 	}
 	return hashVal
 }
@@ -46,31 +45,49 @@ func hashWord(word, salt string) string {
 	if _, ok := allowedWords[word]; ok {
 		return word
 	}
-	return hashTrunc(word, salt)
+	return hashTrunc(word, salt, len(word))
+}
+
+// Walk the text of an address, split by `sep` and return the hash (of len trunc)
+// so 1.2.3.4 may return abc.def.g12.345
+// and 2001:db8::1 may return dead:beef::1234
+func hashIPHelper(ipStr string, salt string, sep string, trunc int) string {
+	out := ""
+	parts := strings.Split(ipStr, sep)
+	for i, part := range parts {
+		if i != 0 {
+			out = out + sep
+		}
+		if part == "" {
+			continue
+		}
+		hashVal := hashTrunc(part, salt, trunc)
+		out = out + hashVal
+	}
+	return out
 }
 
 // Returns the hash of salt+IP.
-// always returns 3 bytes for each component of the IP.
-func hashIP(ip string, salt string) string {
-	out := ""
-	parts := strings.Split(ip, ".")
-	for i, part := range parts {
-		if i != 0 {
-			out = out + "."
-		}
-		hashVal := hash(part, salt)
-		hashVal = hashVal[len(hashVal)-3:]
-		out = fmt.Sprintf("%s%s", out, hashVal)
+// 1.2.3.4 will hash as hash(salt+1).hash(salt+2).hash(salt+3).hash(salt+4)
+// similarly for IPv6
+func hashIP(ip net.IP, salt string) string {
+	ipStr := ip.String()
+	if p4 := ip.To4(); len(p4) == net.IPv4len {
+		return hashIPHelper(ipStr, salt, ".", 3)
 	}
-	return out
+	if p6 := ip.To16(); len(p6) == net.IPv6len {
+		return hashIPHelper(ipStr, salt, ":", 4)
+	}
+	return hashWord(ipStr, salt)
 }
 
 // Break the string on `/`, `.`, and `-`. Individually salt+hash each of those
 // `words`. If all of the 'stuff' before the `/` looks like an IP handle it a little
 // differently.
 func hashString(str, salt string) string {
+	// Before we break it up, if it's an IP, handle it special
 	if ip := net.ParseIP(str); ip != nil {
-		return hashIP(str, salt)
+		return hashIP(ip, salt)
 	}
 	out := ""
 	slashParts := strings.Split(str, "/")
@@ -95,22 +112,22 @@ func hashString(str, salt string) string {
 	return out
 }
 
-func validCIDR(in string) bool {
-	_, _, err := net.ParseCIDR(in)
+// check if a string can be parsed as a CIDR
+func validCIDR(in string) (net.IP, *net.IPNet, bool) {
+	ip, ipnet, err := net.ParseCIDR(in)
 	if err != nil {
-		return false
+		return nil, nil, false
 	}
-	return true
+	return ip, ipnet, true
 }
 
-func cidrHash(cidr, salt string) string {
-	parts := strings.Split(cidr, "/")
+func cidrHash(ip net.IP, cidr *net.IPNet, salt string) string {
 	// do hash the IP portion
-	out := hashIP(parts[0], salt)
+	out := hashIP(ip, salt)
 	out = out + "/"
 	// do not hash the subnet len
-	out = out + parts[1]
-	return out
+	ones, _ := cidr.Mask.Size()
+	return fmt.Sprintf("%s%d", out, ones)
 }
 
 // SetAllowedWords allows you to specify words which will not be hashed. These will
@@ -128,8 +145,8 @@ func SetAllowedWords(allowed map[string]struct{}) {
 //    https://this.that -> https://0a31.deb4
 func HashURL(urlString, salt string) string {
 	// If it looks like a cidr (aka 192.168.0.0/24) parse it.
-	if validCIDR(urlString) {
-		return cidrHash(urlString, salt)
+	if ip, ipnet, ok := validCIDR(urlString); ok {
+		return cidrHash(ip, ipnet, salt)
 	}
 
 	// Make sure that every string parses with a 'Scheme'. Stoopid RFC. Without this we
@@ -151,16 +168,20 @@ func HashURL(urlString, salt string) string {
 		out = u.Scheme + "://"
 	}
 
-	// has the hostname
-	host := u.Hostname()
-	if host != "" {
-		out = out + hashString(host, salt)
-	}
+	if ip := net.ParseIP(u.Host); ip != nil {
+		out = out + hashIP(ip, salt)
+	} else {
+		// has the hostname
+		host := u.Hostname()
+		if host != "" {
+			out = out + hashString(host, salt)
 
-	// hash the port
-	port := u.Port()
-	if port != "" {
-		out = out + ":" + hashString(port, salt)
+			// hash the port
+			port := u.Port()
+			if port != "" {
+				out = out + ":" + hashString(port, salt)
+			}
+		}
 	}
 
 	// hash the path
