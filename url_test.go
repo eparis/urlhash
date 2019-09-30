@@ -81,6 +81,10 @@ func TestHash(t *testing.T) {
 			url:      "127.0.0.1/path/to/something/openshift",
 			expected: "04c.7e9.7e9.b4b/b5bf/39/ca74813cb/98ee192d6",
 		},
+		{
+			url:      "127.0.0.0/24",
+			expected: "04c.7e9.7e9.7e9/db",
+		},
 	}
 
 	for _, tc := range testCases {
