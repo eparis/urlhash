@@ -83,7 +83,15 @@ func TestHash(t *testing.T) {
 		},
 		{
 			url:      "127.0.0.0/24",
-			expected: "04c.7e9.7e9.7e9/db",
+			expected: "04c.7e9.7e9.7e9/24",
+		},
+		{
+			url:      "127.0.0.0/256",
+			expected: "04c.7e9.7e9.7e9/d52",
+		},
+		{
+			url:      "127.0.0.0/run",
+			expected: "04c.7e9.7e9.7e9/9be",
 		},
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -77,6 +78,14 @@ func hashString(str, salt string) string {
 			// equal to len(word)
 			if net.ParseIP(slashPart) != nil {
 				out = out + hashIP(slashPart, salt)
+				// if this is a CIDR do a horrid hack to detect and print
+				if len(slashParts) == 2 {
+					val, err := strconv.Atoi(slashParts[1])
+					if err != nil || val < 0 || val > 255 {
+						continue
+					}
+					return out + "/" + slashParts[1]
+				}
 				continue
 			}
 		} else {
