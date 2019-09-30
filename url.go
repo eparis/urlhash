@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 )
 
@@ -70,25 +69,13 @@ func hashIP(ip string, salt string) string {
 // `words`. If all of the 'stuff' before the `/` looks like an IP handle it a little
 // differently.
 func hashString(str, salt string) string {
+	if ip := net.ParseIP(str); ip != nil {
+		return hashIP(str, salt)
+	}
 	out := ""
 	slashParts := strings.Split(str, "/")
 	for i, slashPart := range slashParts {
-		if i == 0 {
-			// This looks like an IP, so make the hash len==3 instead of
-			// equal to len(word)
-			if net.ParseIP(slashPart) != nil {
-				out = out + hashIP(slashPart, salt)
-				// if this is a CIDR do a horrid hack to detect and print
-				if len(slashParts) == 2 {
-					val, err := strconv.Atoi(slashParts[1])
-					if err != nil || val < 0 || val > 255 {
-						continue
-					}
-					return out + "/" + slashParts[1]
-				}
-				continue
-			}
-		} else {
+		if i != 0 {
 			out = out + "/"
 		}
 		dotParts := strings.Split(slashPart, ".")
@@ -108,6 +95,24 @@ func hashString(str, salt string) string {
 	return out
 }
 
+func validCIDR(in string) bool {
+	_, _, err := net.ParseCIDR(in)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func cidrHash(cidr, salt string) string {
+	parts := strings.Split(cidr, "/")
+	// do hash the IP portion
+	out := hashIP(parts[0], salt)
+	out = out + "/"
+	// do not hash the subnet len
+	out = out + parts[1]
+	return out
+}
+
 // SetAllowedWords allows you to specify words which will not be hashed. These will
 // instead be returned unchanged.
 func SetAllowedWords(allowed map[string]struct{}) {
@@ -122,22 +127,47 @@ func SetAllowedWords(allowed map[string]struct{}) {
 //    https://that.openshift.com -> https://deb4.openshift.com
 //    https://this.that -> https://0a31.deb4
 func HashURL(urlString, salt string) string {
-	out := ""
+	// If it looks like a cidr (aka 192.168.0.0/24) parse it.
+	if validCIDR(urlString) {
+		return cidrHash(urlString, salt)
+	}
+
+	// Make sure that every string parses with a 'Scheme'. Stoopid RFC. Without this we
+	// parse things like `127.0.0.1:8080` very oddly.
+	if !strings.Contains(urlString, "://") {
+		urlString = "placeholder://" + urlString
+	}
+
+	// Parse it
 	u, err := url.Parse(urlString)
 	if err != nil {
+		// If we still don't look like a URL, just hash it and move along
 		return hash(urlString, salt)
 	}
-	if u.Scheme != "" {
+
+	// Just print the scheme (except if it is our magic string
+	out := ""
+	if u.Scheme != "" && u.Scheme != "placeholder" {
 		out = u.Scheme + "://"
 	}
-	if u.Host != "" {
-		out = out + hashString(u.Host, salt)
-		if u.Path != "" {
-			out = out + hashString(u.Path, salt)
-		}
-	} else if u.Path != "" {
+
+	// has the hostname
+	host := u.Hostname()
+	if host != "" {
+		out = out + hashString(host, salt)
+	}
+
+	// hash the port
+	port := u.Port()
+	if port != "" {
+		out = out + ":" + hashString(port, salt)
+	}
+
+	// hash the path
+	path := u.Path
+	if path != "" {
 		// If the host was not found, treat the path as the host
-		out = out + hashString(u.Path, salt)
+		out = out + hashString(path, salt)
 	}
 	return out
 }

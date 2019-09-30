@@ -14,8 +14,16 @@ func TestHash(t *testing.T) {
 			expected: "05.98ee192d6.479.95d230c.ee8ca6dd.6f3",
 		},
 		{
+			url:      "my.openshift.api.console.customer.com:8080",
+			expected: "05.98ee192d6.479.95d230c.ee8ca6dd.6f3:ce21",
+		},
+		{
 			url:      "https://my.openshift.api.console.customer.com",
 			expected: "https://05.98ee192d6.479.95d230c.ee8ca6dd.6f3",
+		},
+		{
+			url:      "https://my.openshift.api.console.customer.com:8080",
+			expected: "https://05.98ee192d6.479.95d230c.ee8ca6dd.6f3:ce21",
 		},
 		{
 			url:      "https://my.openshift.api.console.customer.com/path/to/something/openshift",
@@ -78,6 +86,11 @@ func TestHash(t *testing.T) {
 			expected: "04c.7e9.7e9.b35",
 		},
 		{
+			// This is not a valid IP, so it got parsed as words. And thus the len of each tuple != 3
+			url:      "256.0.0.1",
+			expected: "d52.9.9.b",
+		},
+		{
 			url:      "127.0.0.1/path/to/something/openshift",
 			expected: "04c.7e9.7e9.b4b/b5bf/39/ca74813cb/98ee192d6",
 		},
@@ -92,6 +105,14 @@ func TestHash(t *testing.T) {
 		{
 			url:      "127.0.0.0/run",
 			expected: "04c.7e9.7e9.7e9/9be",
+		},
+		{
+			url:      "127.0.0.0:8080",
+			expected: "04c.7e9.7e9.7e9:ce21",
+		},
+		{
+			url:      "127.0.0.0:8080/path/to/something/openshift",
+			expected: "04c.7e9.7e9.7e9:ce21/b5bf/39/ca74813cb/98ee192d6",
 		},
 	}
 
