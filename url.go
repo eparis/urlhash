@@ -76,7 +76,7 @@ func hashIP(ip net.IP, salt string) string {
 		return hashIPHelper(ipStr, salt, ".", 3)
 	}
 	if p6 := ip.To16(); len(p6) == net.IPv6len {
-		return hashIPHelper(ipStr, salt, ":", 4)
+		return "[" + hashIPHelper(ipStr, salt, ":", 4) + "]"
 	}
 	return hashWord(ipStr, salt)
 }
@@ -162,7 +162,7 @@ func HashURL(urlString, salt string) string {
 		return hash(urlString, salt)
 	}
 
-	// Just print the scheme (except if it is our magic string
+	// Just print the scheme (excludig our magic string)
 	out := ""
 	if u.Scheme != "" && u.Scheme != "placeholder" {
 		out = u.Scheme + "://"

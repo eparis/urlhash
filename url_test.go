@@ -116,15 +116,36 @@ func TestHash(t *testing.T) {
 		},
 		{
 			url:      "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-			expected: "b948:f488:9ee8::a578:52d5:dab7",
+			expected: "[b948:f488:9ee8::a578:52d5:dab7]",
 		},
 		{
 			url:      "2001:db8:85a3:0:0:8a2e:370:7334",
-			expected: "b948:f488:9ee8::a578:52d5:dab7",
+			expected: "[b948:f488:9ee8::a578:52d5:dab7]",
 		},
 		{
 			url:      "2001:db8:85a3::8a2e:370:7334",
-			expected: "b948:f488:9ee8::a578:52d5:dab7",
+			expected: "[b948:f488:9ee8::a578:52d5:dab7]",
+		},
+		{
+			url:      "[2001:db8:85a3::8a2e:370:7334]",
+			expected: "[b948:f488:9ee8::a578:52d5:dab7]",
+		},
+		{
+			url:      "[2001:db8:85a3::8a2e:370:7334]:8080",
+			expected: "[b948:f488:9ee8::a578:52d5:dab7]:ce21",
+		},
+		{
+			// Likely not actually a valid URL, since no [] - RFC 3986 (though not 100% certain)
+			url:      "https://2001:db8:85a3::8a2e:370:7334/path/to/something/openshift",
+			expected: "https://[b948:f488:9ee8::a578:52d5:dab7]/b5bf/39/ca74813cb/98ee192d6",
+		},
+		{
+			url:      "https://[2001:db8:85a3::8a2e:370:7334]/path/to/something/openshift",
+			expected: "https://[b948:f488:9ee8::a578:52d5:dab7]/b5bf/39/ca74813cb/98ee192d6",
+		},
+		{
+			url:      "https://[2001:db8:85a3::8a2e:370:7334]:8080/path/to/something/openshift",
+			expected: "https://[b948:f488:9ee8::a578:52d5:dab7]:ce21/b5bf/39/ca74813cb/98ee192d6",
 		},
 	}
 
