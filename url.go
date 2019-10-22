@@ -3,12 +3,14 @@ package urlhash
 import (
 	"crypto/sha256"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/url"
 	"strings"
 )
 
 var (
+	globalSalt     = ""
 	allowedWords   = map[string]struct{}{}
 	OpenShiftWords = map[string]struct{}{
 		"kubernetes": {},
@@ -136,14 +138,15 @@ func SetAllowedWords(allowed map[string]struct{}) {
 	allowedWords = allowed
 }
 
-// HashURL takes an url and returns a hash. This hash should be non-trivial to get the
-// original value, but should be stable. So one can compare the output of the hash accross
-// different urls. For example if openshift and com are in the 'AllowedWords' the urls
-// might hash as:
-//    https://this.openshift.com -> https://0a31.openshift.com
-//    https://that.openshift.com -> https://deb4.openshift.com
-//    https://this.that -> https://0a31.deb4
-func HashURL(urlString, salt string) string {
+// SetSalt allows you to set the salt which will be used in calls to
+// HashURL.
+func SetSalt(salt string) {
+	globalSalt = salt
+}
+
+// HashURLSalt is the same as HashURL except you can pass an explict salt to
+// use for this call. Whereas HashURL uses the salt set globally.
+func HashURLSalt(urlString, salt string) string {
 	// If it looks like a cidr (aka 192.168.0.0/24) parse it.
 	if ip, ipnet, ok := validCIDR(urlString); ok {
 		return cidrHash(ip, ipnet, salt)
@@ -191,4 +194,27 @@ func HashURL(urlString, salt string) string {
 		out = out + hashString(path, salt)
 	}
 	return out
+}
+
+// HashURL takes an url and returns a hash. This hash should be non-trivial to get the
+// original value, but should be stable. So one can compare the output of the hash accross
+// different urls. For example if openshift and com are in the 'AllowedWords' the urls
+// might hash as:
+//    https://this.openshift.com -> https://0a31.openshift.com
+//    https://that.openshift.com -> https://deb4.openshift.com
+//    https://this.that -> https://0a31.deb4
+func HashURL(urlString string) string {
+	return HashURLSalt(urlString, globalSalt)
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+// GetNewSalt returns a random string of a given length. Which can be used in SetSalt.
+// please note you may need to seed rand before calling this function.
+func GetNewSalt(length int) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
 }

@@ -147,12 +147,18 @@ func TestHash(t *testing.T) {
 			url:      "https://[2001:db8:85a3::8a2e:370:7334]:8080/path/to/something/openshift",
 			expected: "https://[b948:f488:9ee8::a578:52d5:dab7]:ce21/b5bf/39/ca74813cb/98ee192d6",
 		},
+		{
+			url:      "127.0.0.1",
+			expected: "38c.2ba.2ba.9f9",
+			salt:     "GetNewSalt(10)",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.url, func(t *testing.T) {
 			SetAllowedWords(tc.allowedWords)
-			out := HashURL(tc.url, tc.salt)
+			SetSalt(tc.salt)
+			out := HashURL(tc.url)
 			if out != tc.expected {
 				t.Errorf("Got %s expected %s", out, tc.expected)
 			}
